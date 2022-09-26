@@ -16,16 +16,21 @@ function Controls(props) {
 	const [toggleAutoSave, setToggleAutoSave] = useState(false);
 	const {
 		saveOutstanding,
+		isSavedLocally,
 		saveMapClick,
+		saveMapLocallyClick,
 		mutateMapText,
 		setMetaText,
 		newMapClick,
 		downloadMapImage,
+		downloadMapSvg,
+		deleteCurrentMap,
 		currentUrl,
 		setShowLineNumbers,
 		showLineNumbers,
 		setShowLinkedEvolved,
 		showLinkedEvolved,
+		areLocalMapsAvailable,
 	} = props;
 	useEffect(() => {
 		if (toggleAutoSave === true) {
@@ -69,11 +74,19 @@ function Controls(props) {
 			</Button>
 			<Button
 				id="save-map"
+				onClick={saveMapLocallyClick}
+				type="button"
+				variant={isSavedLocally ? 'danger' : 'success'}
+			>
+				Save Locally
+			</Button>
+			<Button
+				id="save-map"
 				onClick={saveMapClick}
 				type="button"
 				variant={saveOutstanding ? 'danger' : 'success'}
 			>
-				Save
+				Save Remotely
 			</Button>
 
 			<DropdownButton
@@ -83,10 +96,21 @@ function Controls(props) {
 				alignRight
 				variant="info"
 			>
+				{areLocalMapsAvailable && (
+					<>
+						<Dropdown.Item eventKey="3" onClick={deleteCurrentMap}>
+							Delete Current Map
+						</Dropdown.Item>
+						<Dropdown.Divider />
+					</>
+				)}
 				<Dropdown.Item eventKey="1" onClick={downloadMapImage}>
 					Download as PNG
 				</Dropdown.Item>
-				<Dropdown.Item eventKey="2" onClick={() => setModalShow(true)}>
+				<Dropdown.Item eventKey="2" onClick={downloadMapSvg}>
+					Download as SVG
+				</Dropdown.Item>
+				<Dropdown.Item eventKey="4" onClick={() => setModalShow(true)}>
 					Get Clone URL
 				</Dropdown.Item>
 				<Dropdown.Item

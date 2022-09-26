@@ -9,7 +9,11 @@ class MapView extends Component {
 				<div ref={this.props.mapRef}>
 					<h5 id="title">{this.props.mapTitle}</h5>
 					<div id="map">
-						<MapCanvas mapPadding={20} {...this.props} />
+						<MapCanvas
+							svgRef={this.props.svgRef}
+							mapPadding={20}
+							{...this.props}
+						/>
 					</div>
 				</div>
 			</>

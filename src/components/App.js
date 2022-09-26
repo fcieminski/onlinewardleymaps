@@ -62,6 +62,8 @@ function App() {
 	const [mapAnnotations, setMapAnnotations] = useState([]);
 	const [mapMethods, setMapMethods] = useState([]);
 	const [invalid, setInvalid] = useState(false);
+	const [localMaps, setLocalMaps] = useState([]);
+	const [currentMapId, setCurrentMapId] = useState(null);
 
 	const [newComponentContext, setNewComponentContext] = useState(null);
 	const [mapAnnotationsPresentation, setMapAnnotationsPresentation] = useState(
@@ -76,10 +78,12 @@ function App() {
 	const [mapYAxis, setMapYAxis] = useState({});
 	const [mapStyleDefs, setMapStyleDefs] = useState(MapStyles.Plain);
 	const [saveOutstanding, setSaveOutstanding] = useState(false);
+	const [isSavedLocally, setIsSavedLocally] = useState(false);
 	const [toggleToolbar, setToggleToolbar] = useState(true);
 
 	const [highlightLine, setHighlightLine] = useState(0);
 	const mapRef = useRef(null);
+	const svgRef = useRef(null);
 	const [mainViewHeight, setMainViewHeight] = useState(100);
 	const [errorLine, setErrorLine] = useState(-1);
 	const [showLineNumbers, setShowLineNumbers] = useState(false);
@@ -97,6 +101,7 @@ function App() {
 	const mutateMapText = newText => {
 		setMapText(newText);
 		setSaveOutstanding(true);
+		setIsSavedLocally(true);
 	};
 
 	const launchUrl = urlId => {
@@ -122,6 +127,79 @@ function App() {
 				console.log('Request failed', error);
 				setCurrentUrl('(could not save map, please try again)');
 			});
+	};
+
+	const getDataFromLocalStorage = key => {
+		const data = localStorage.getItem(key);
+		return data ? JSON.parse(data) : null;
+	};
+
+	const saveToLocalStorage = hash => {
+		const generatedId = Math.random()
+			.toString(36)
+			.substring(2);
+		const id = hash || generatedId;
+		const newMapObject = { id, text: mapText, meta: metaText };
+		let updatedMaps;
+
+		if (localMaps.length) {
+			const isCurrentMapAlreadySaved = localMaps.find(
+				localMap => localMap.id === hash
+			);
+			if (isCurrentMapAlreadySaved) {
+				updatedMaps = localMaps.map(localMap => {
+					if (localMap.id === hash) {
+						return {
+							...localMap,
+							text: mapText,
+						};
+					}
+
+					return localMap;
+				});
+			} else {
+				updatedMaps = [...localMaps, newMapObject];
+			}
+		}
+		const mapsToAdd = updatedMaps || [newMapObject];
+
+		localStorage.setItem('map', JSON.stringify(mapsToAdd));
+		setLocalMaps(mapsToAdd);
+		setIsSavedLocally(false);
+		setCurrentUrl('');
+		setCurrentMapId(id);
+		window.location.hash = `#${id}`;
+	};
+
+	const loadFromLocalStorage = id => {
+		const mapData = getDataFromLocalStorage('map');
+
+		if (mapData) {
+			const currentId = id || window.location.hash.replace('#', '');
+			setLocalMaps(mapData);
+			setCurrentMapId(currentId);
+
+			if (currentId) {
+				const currentMap = mapData.find(map => map.id === currentId);
+				setMapText(currentMap.text);
+				setMetaText(currentMap.meta);
+				window.location.hash = `#${currentId}`;
+			}
+		}
+	};
+
+	const deleteCurrentMap = () => {
+		const filteredMaps = localMaps.filter(map => map.id !== currentMapId);
+		setLocalMaps(filteredMaps);
+		localStorage.setItem('map', JSON.stringify(filteredMaps));
+
+		if (filteredMaps.length) {
+			const newCurrentMap = filteredMaps[0];
+			loadFromLocalStorage(newCurrentMap.id);
+			return;
+		}
+
+		newMap();
 	};
 
 	const loadFromRemoteStorage = function() {
@@ -161,8 +239,10 @@ function App() {
 		window.location.hash = '';
 		setMapText('');
 		setMetaText('');
-		setCurrentUrl('(unsaved)');
+		setCurrentUrl(localMaps ? '' : '(unsaved)');
 		setSaveOutstanding(false);
+		setIsSavedLocally(false);
+		setCurrentMapId(null);
 	}
 
 	function saveMap() {
@@ -170,15 +250,32 @@ function App() {
 		saveToRemoteStorage(window.location.hash.replace('#', ''));
 	}
 
+	function saveMapLocallyClick() {
+		saveToLocalStorage(window.location.hash.replace('#', ''));
+	}
+
 	function downloadMap() {
 		html2canvas(mapRef.current).then(canvas => {
-			const base64image = canvas.toDataURL('image/png');
+			const base64image = canvas.toDataURL('image/svg');
 			const link = document.createElement('a');
 			link.download = mapTitle;
 			link.href = base64image;
 			link.click();
 		});
 	}
+
+	const downloadMapSvg = () => {
+		const svg = svgRef.current;
+		const svgData = new XMLSerializer().serializeToString(svg);
+		const svgBlob = new Blob([svgData], {
+			type: 'image/svg+xml;charset=utf-8',
+		});
+		const svgUrl = URL.createObjectURL(svgBlob);
+		const link = document.createElement('a');
+		link.download = mapTitle;
+		link.href = svgUrl;
+		link.click();
+	};
 
 	React.useEffect(() => {
 		try {
@@ -244,7 +341,9 @@ function App() {
 		}, 1000);
 
 		const initialLoad = () => {
-			loadFromRemoteStorage();
+			window.location.hostname === 'localhost'
+				? loadFromLocalStorage()
+				: loadFromRemoteStorage();
 			setMapDimensions({ width: getWidth(), height: getHeight() });
 			setMainViewHeight(105 + getHeight());
 		};
@@ -271,15 +370,20 @@ function App() {
 							<Controls
 								currentUrl={currentUrl}
 								saveOutstanding={saveOutstanding}
+								isSavedLocally={isSavedLocally}
 								setMetaText={setMetaText}
 								mutateMapText={mutateMapText}
 								newMapClick={newMap}
 								saveMapClick={saveMap}
+								saveMapLocallyClick={saveMapLocallyClick}
 								downloadMapImage={downloadMap}
+								downloadMapSvg={downloadMapSvg}
 								showLineNumbers={showLineNumbers}
 								setShowLineNumbers={setShowLineNumbers}
 								showLinkedEvolved={showLinkedEvolved}
 								setShowLinkedEvolved={setShowLinkedEvolved}
+								deleteCurrentMap={deleteCurrentMap}
+								areLocalMapsAvailable={!!localMaps.length}
 							/>
 						</div>
 					</div>
@@ -293,7 +397,11 @@ function App() {
 						/>
 					</div>
 				) : (
-					<Breadcrumb currentUrl={currentUrl} />
+					<Breadcrumb
+						localMaps={localMaps}
+						loadLocalMap={loadFromLocalStorage}
+						currentUrl={currentUrl}
+					/>
 				)}
 			</div>
 			<div
@@ -342,6 +450,7 @@ function App() {
 							mapDimensions={mapDimensions}
 							mapEvolutionStates={mapEvolutionStates}
 							mapRef={mapRef}
+							svgRef={svgRef}
 							mapText={mapText}
 							mutateMapText={mutateMapText}
 							setMetaText={setMetaText}
