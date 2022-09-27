@@ -118,7 +118,9 @@ function Controls(props) {
 					onClick={clickAutoSave}
 					variant={toggleAutoSave ? 'success' : 'danger'}
 				>
-					{toggleAutoSave ? 'AutoSave is On' : 'AutoSave is Off'}
+					{toggleAutoSave
+						? 'AutoSave Remotely is On'
+						: 'AutoSave Remotely is Off'}
 				</Dropdown.Item>
 				<Dropdown.Divider />
 				<Dropdown.Item

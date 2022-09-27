@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { hot } from 'react-hot-loader/root';
 import html2canvas from 'html2canvas';
 import Usage from './editor/Usage';
@@ -62,8 +62,11 @@ function App() {
 	const [mapAnnotations, setMapAnnotations] = useState([]);
 	const [mapMethods, setMapMethods] = useState([]);
 	const [invalid, setInvalid] = useState(false);
-	const [localMaps, setLocalMaps] = useState([]);
 	const [currentMapId, setCurrentMapId] = useState(null);
+	const [localMaps, setLocalMaps] = useState([]);
+	const areLocalMapsAvailable = useMemo(() => {
+		return !!localMaps.length;
+	}, [localMaps]);
 
 	const [newComponentContext, setNewComponentContext] = useState(null);
 	const [mapAnnotationsPresentation, setMapAnnotationsPresentation] = useState(
@@ -139,10 +142,10 @@ function App() {
 			.toString(36)
 			.substring(2);
 		const id = hash || generatedId;
-		const newMapObject = { id, text: mapText, meta: metaText };
+		const newMapObject = { id, text: mapText, meta: metaText, title: mapTitle };
 		let updatedMaps;
 
-		if (localMaps.length) {
+		if (areLocalMapsAvailable) {
 			const isCurrentMapAlreadySaved = localMaps.find(
 				localMap => localMap.id === hash
 			);
@@ -152,6 +155,7 @@ function App() {
 						return {
 							...localMap,
 							text: mapText,
+							title: mapTitle,
 						};
 					}
 
@@ -166,7 +170,6 @@ function App() {
 		localStorage.setItem('map', JSON.stringify(mapsToAdd));
 		setLocalMaps(mapsToAdd);
 		setIsSavedLocally(false);
-		setCurrentUrl('');
 		setCurrentMapId(id);
 		window.location.hash = `#${id}`;
 	};
@@ -383,7 +386,7 @@ function App() {
 								showLinkedEvolved={showLinkedEvolved}
 								setShowLinkedEvolved={setShowLinkedEvolved}
 								deleteCurrentMap={deleteCurrentMap}
-								areLocalMapsAvailable={!!localMaps.length}
+								areLocalMapsAvailable={areLocalMapsAvailable}
 							/>
 						</div>
 					</div>
@@ -399,6 +402,7 @@ function App() {
 				) : (
 					<Breadcrumb
 						localMaps={localMaps}
+						areLocalMapsAvailable={areLocalMapsAvailable}
 						loadLocalMap={loadFromLocalStorage}
 						currentUrl={currentUrl}
 					/>
